@@ -32,6 +32,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from html import unescape
 import re
+import unicodedata
 
 
 API_BASE_URL = "https://polygon.codeforces.com/api"
@@ -252,9 +253,18 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
     return contest_name or "Moodle Contest", tasks
 
 
-def create_polygon_problem(api: PolygonAPI, contest_name: str, task: MoodleTask) -> int:
-    problem_name = f"{contest_name} - {task.name}" if contest_name else task.name
-    problem = api.request("problem.create", {"name": problem_name})
+def slugify(value: str, fallback: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    ascii_text = ascii_text.lower()
+    ascii_text = re.sub(r"[^a-z0-9]+", "-", ascii_text)
+    ascii_text = ascii_text.strip("-")
+    ascii_text = re.sub(r"-+", "-", ascii_text)
+    return ascii_text or fallback
+
+
+def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask) -> int:
+    problem = api.request("problem.create", {"name": problem_code})
     if isinstance(problem, dict) and "id" in problem:
         problem_id = int(problem["id"])
     elif isinstance(problem, list) and problem and isinstance(problem[0], dict) and "id" in problem[0]:
@@ -372,11 +382,13 @@ def main() -> None:
         sys.exit(1)
 
     api = PolygonAPI(api_url, api_key, api_secret)
+    contest_slug = slugify(contest_name, "contest")
     created_ids: list[int] = []
 
-    for task in tasks:
+    for index, task in enumerate(tasks, start=1):
+        problem_code = f"{contest_slug}-{index:02d}"
         try:
-            problem_id = create_polygon_problem(api, contest_name, task)
+            problem_id = create_polygon_problem(api, problem_code, task)
         except Exception as exc:  # pragma: no cover - network errors
             print(f"Failed to create problem '{task.name}': {exc}", file=sys.stderr)
             sys.exit(1)
