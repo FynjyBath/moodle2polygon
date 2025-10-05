@@ -298,7 +298,7 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
 
     api.request(
         "problem.setChecker",
-        {"problemId": problem_id, "checker": "std::cmp_long_long_sequence"},
+        {"problemId": problem_id, "checker": "std::ncmp.cpp"},
     )
 
     api.request(
