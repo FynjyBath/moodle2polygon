@@ -196,6 +196,29 @@ def extract_text_sections(html: str) -> tuple[str, str, str]:
     return legend, input_format, output_format
 
 
+def _normalize_whitespace(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip())
+
+
+def _strip_redundant_title(legend: str, title: str) -> str:
+    if not legend:
+        return legend
+
+    sections = legend.split("\n\n")
+    if not sections:
+        return legend
+
+    normalized_title = _normalize_whitespace(title).lower()
+    normalized_first = _normalize_whitespace(sections[0]).lower()
+    if normalized_first != normalized_title:
+        return legend
+
+    sections = sections[1:]
+    while sections and not sections[0].strip():
+        sections = sections[1:]
+    return "\n\n".join(sections)
+
+
 def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
     tree = ET.parse(path)
     root = tree.getroot()
@@ -225,6 +248,9 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
 
         legend, input_format, output_format = extract_text_sections(questiontext_node.text or "")
 
+        name = (name_node.text or "Unnamed task").strip()
+        legend = _strip_redundant_title(legend, name)
+
         tests: list[TestCase] = []
         for idx, testcase in enumerate(question.findall("testcases/testcase"), start=1):
             stdin_node = testcase.find("stdin/text")
@@ -238,7 +264,7 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
 
         tasks.append(
             MoodleTask(
-                name=name_node.text or "Unnamed task",
+                name=name,
                 legend=legend,
                 input_format=input_format,
                 output_format=output_format,
