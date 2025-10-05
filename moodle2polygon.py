@@ -90,7 +90,21 @@ class PolygonAPI:
             with urllib.request.urlopen(request) as response:
                 payload = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:  # pragma: no cover - network errors
-            raise PolygonAPIError(f"HTTP error {exc.code}: {exc.reason}") from exc
+            message = f"HTTP error {exc.code}: {exc.reason}"
+            try:
+                error_payload = exc.read().decode("utf-8", errors="replace")
+            except Exception:  # pragma: no cover - I/O decoding issues
+                error_payload = ""
+            if error_payload:
+                try:
+                    data = json.loads(error_payload)
+                except json.JSONDecodeError:
+                    message = f"{message}. Response: {error_payload.strip()}"
+                else:
+                    comment = data.get("comment") if isinstance(data, dict) else None
+                    if comment:
+                        message = f"{message}. {comment}"
+            raise PolygonAPIError(message) from exc
         except urllib.error.URLError as exc:  # pragma: no cover - network errors
             raise PolygonAPIError(f"Network error: {exc.reason}") from exc
 
