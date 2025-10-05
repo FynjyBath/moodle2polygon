@@ -200,6 +200,42 @@ def _normalize_whitespace(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip())
 
 
+def _extract_first_word(value: str) -> str:
+    stripped = value.lstrip()
+    if not stripped:
+        return ""
+    parts = stripped.split(None, 1)
+    return parts[0] if parts else ""
+
+
+def _is_integer_token(token: str) -> bool:
+    return bool(re.fullmatch(r"[+-]?\d+", token))
+
+
+def _is_float_token(token: str) -> bool:
+    if not token or _is_integer_token(token):
+        return False
+    try:
+        float(token)
+    except ValueError:
+        return False
+    return any(ch.isdigit() for ch in token) and any(ch in ".eE" for ch in token)
+
+
+def _select_checker(task: MoodleTask) -> str:
+    if not task.tests:
+        return "std::lcmp.cpp"
+
+    first_word = _extract_first_word(task.tests[0].output_data)
+    if not first_word:
+        return "std::lcmp.cpp"
+    if _is_integer_token(first_word):
+        return "std::ncmp.cpp"
+    if _is_float_token(first_word):
+        return "std::rcmp9.cpp"
+    return "std::lcmp.cpp"
+
+
 def _strip_redundant_title(legend: str, title: str) -> str:
     if not legend:
         return legend
@@ -322,9 +358,9 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
         },
     )
 
+    checker = _select_checker(task)
     api.request(
-        "problem.setChecker",
-        {"problemId": problem_id, "checker": "std::ncmp.cpp"},
+        "problem.setChecker", {"problemId": problem_id, "checker": checker}
     )
 
     api.request(
