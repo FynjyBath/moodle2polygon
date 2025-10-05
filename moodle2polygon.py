@@ -203,7 +203,20 @@ def _convert_inline_math_tags(html: str) -> str:
         stripped = content.strip()
         if not stripped:
             return stripped
-        return f"${stripped}$"
+
+        prefix_space = ""
+        if match.start() > 0:
+            prev_char = html[match.start() - 1]
+            if not prev_char.isspace() and prev_char not in "([{":
+                prefix_space = " "
+
+        suffix_space = ""
+        if match.end() < len(html):
+            next_char = html[match.end()]
+            if not next_char.isspace() and next_char not in ",.;:?!)]}":
+                suffix_space = " "
+
+        return f"{prefix_space}${stripped}${suffix_space}"
 
     pattern = re.compile(
         r"(?is)<\s*(?P<tag>b|strong|i|em)\b[^>]*>(?P<content>.*?)<\s*/\s*(?P=tag)\s*>"
