@@ -156,6 +156,7 @@ def extract_text_sections(html: str) -> tuple[str, str, str]:
     html = re.sub(r"(?i)<br\s*/?>", "\n", html)
     html = re.sub(r"(?i)</(p|div|h4|h5)>", "\n", html)
     html = re.sub(r"(?i)<(p|div|h4|h5)[^>]*>", "", html)
+    html = _convert_inline_math_tags(html)
     html = re.sub(r"(?i)</?(span|strong|b|i)[^>]*>", "", html)
 
     text = unescape(html)
@@ -194,6 +195,20 @@ def extract_text_sections(html: str) -> tuple[str, str, str]:
     input_format = "\n".join(input_lines) if input_lines else "Входные данные отсутствуют"
     output_format = "\n".join(output_lines) if output_lines else "Выходные данные отсутствуют"
     return legend, input_format, output_format
+
+
+def _convert_inline_math_tags(html: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        content = match.group("content")
+        stripped = content.strip()
+        if not stripped:
+            return stripped
+        return f"${stripped}$"
+
+    pattern = re.compile(
+        r"(?is)<\s*(?P<tag>b|strong|i|em)\b[^>]*>(?P<content>.*?)<\s*/\s*(?P=tag)\s*>"
+    )
+    return re.sub(pattern, _replace, html)
 
 
 def _normalize_whitespace(value: str) -> str:
