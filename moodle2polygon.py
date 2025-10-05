@@ -331,7 +331,10 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
         api.request("problem.saveTest", params)
 
     api.request("problem.commitChanges", {"problemId": problem_id, "minorChanges": False})
-    api.request("problem.buildPackage", {"problemId": problem_id, "full": False})
+    api.request(
+        "problem.buildPackage",
+        {"problemId": problem_id, "full": True, "verify": True},
+    )
     wait_for_package(api, problem_id)
 
     return problem_id
