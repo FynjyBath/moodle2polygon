@@ -21,6 +21,7 @@ import configparser
 import dataclasses
 import hashlib
 import json
+import logging
 import pathlib
 import random
 import sys
@@ -36,6 +37,9 @@ import unicodedata
 
 
 API_BASE_URL = "https://polygon.codeforces.com/api"
+
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> int:
@@ -354,6 +358,7 @@ def slugify(value: str, fallback: str) -> str:
 
 
 def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask) -> int:
+    logger.info("Creating problem '%s' with code %s", task.name, problem_code)
     problem = api.request("problem.create", {"name": problem_code})
     if isinstance(problem, dict) and "id" in problem:
         problem_id = int(problem["id"])
@@ -362,6 +367,7 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
     else:
         raise PolygonAPIError("Unexpected response from problem.create")
 
+    logger.info("Updating problem info for %s (id=%s)", problem_code, problem_id)
     api.request(
         "problem.updateInfo",
         {
@@ -374,6 +380,7 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
         },
     )
 
+    logger.info("Saving statement for %s", problem_code)
     api.request(
         "problem.saveStatement",
         {
@@ -387,10 +394,12 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
     )
 
     checker = _select_checker(task)
+    logger.info("Setting checker '%s' for %s", checker, problem_code)
     api.request(
         "problem.setChecker", {"problemId": problem_id, "checker": checker}
     )
 
+    logger.info("Uploading solution for %s", problem_code)
     api.request(
         "problem.saveSolution",
         {
@@ -403,6 +412,12 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
     )
 
     for test in task.tests:
+        logger.info(
+            "Saving test %s for %s (use_in_statements=%s)",
+            test.index,
+            problem_code,
+            test.use_in_statements,
+        )
         params = {
             "problemId": problem_id,
             "testset": "tests",
@@ -420,29 +435,38 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
             )
         api.request("problem.saveTest", params)
 
+    logger.info("Committing changes for %s", problem_code)
     api.request("problem.commitChanges", {"problemId": problem_id, "minorChanges": False})
+    logger.info("Triggering package build for %s", problem_code)
     api.request(
         "problem.buildPackage",
         {"problemId": problem_id, "full": True, "verify": True},
     )
     wait_for_package(api, problem_id)
+    logger.info("Problem %s (id=%s) is ready", problem_code, problem_id)
 
     return problem_id
 
 
 def wait_for_package(api: PolygonAPI, problem_id: int, timeout: int = 300) -> None:
     deadline = _now() + timeout
+    logger.info("Waiting for package build for problem id=%s", problem_id)
     while _now() < deadline:
         packages = api.request("problem.packages", {"problemId": problem_id})
         if not packages:
+            logger.debug("No packages returned yet for problem id=%s", problem_id)
             time.sleep(2)
             continue
         latest = max(packages, key=lambda pkg: pkg.get("creationTimeSeconds", 0))
         state = latest.get("state")
         if state == "READY":
+            logger.info("Package build ready for problem id=%s", problem_id)
             return
         if state == "FAILED":
             raise PolygonAPIError(f"Package build failed for problem {problem_id}")
+        logger.debug(
+            "Package build state for problem id=%s: %s. Waiting...", problem_id, state
+        )
         time.sleep(2)
     raise PolygonAPIError(f"Timeout while waiting for package build for problem {problem_id}")
 
@@ -458,12 +482,21 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] %(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    logger.info("Starting import from '%s'", args.xml_file)
+    logger.info("Reading configuration from '%s'", args.config)
     try:
         api_url, api_key, api_secret = parse_config(args.config)
     except Exception as exc:  # pragma: no cover - configuration errors
         print(f"Failed to read configuration: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    logger.info("Parsing Moodle export '%s'", args.xml_file)
     try:
         contest_name, tasks = parse_moodle_xml(args.xml_file)
     except Exception as exc:  # pragma: no cover - parsing errors
@@ -478,8 +511,10 @@ def main() -> None:
     contest_slug = slugify(contest_name, "contest")
     created_ids: list[int] = []
 
+    logger.info("Found %s tasks. Contest slug: %s", len(tasks), contest_slug)
     for index, task in enumerate(tasks, start=1):
         problem_code = f"{contest_slug}-{index:02d}"
+        logger.info("Processing task %s/%s: '%s'", index, len(tasks), task.name)
         try:
             problem_id = create_polygon_problem(api, problem_code, task)
         except Exception as exc:  # pragma: no cover - network errors
@@ -487,6 +522,7 @@ def main() -> None:
             sys.exit(1)
         created_ids.append(problem_id)
 
+    logger.info("Successfully created %s problems", len(created_ids))
     for pid in created_ids:
         print(pid)
 
