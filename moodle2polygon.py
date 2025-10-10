@@ -509,6 +509,7 @@ def main() -> None:
     api = PolygonAPI(api_url, api_key, api_secret)
     contest_slug = slugify(contest_name, "contest")
     created_ids: list[int] = []
+    failures: list[tuple[str, str]] = []
 
     logger.info("Found %s tasks. Contest slug: %s", len(tasks), contest_slug)
     for index, task in enumerate(tasks, start=1):
@@ -516,14 +517,34 @@ def main() -> None:
         logger.info("Processing task %s/%s: '%s'", index, len(tasks), task.name)
         try:
             problem_id = create_polygon_problem(api, problem_code, task)
-        except Exception as exc:  # pragma: no cover - network errors
+        except PolygonAPIError as exc:
+            message = str(exc)
+            logger.error(
+                "Failed to create problem '%s' with code %s: %s",
+                task.name,
+                problem_code,
+                message,
+            )
+            failures.append((task.name, message))
+            continue
+        except Exception as exc:  # pragma: no cover - unexpected runtime errors
+            logger.exception("Unexpected error while creating problem '%s'", task.name)
             print(f"Failed to create problem '{task.name}': {exc}", file=sys.stderr)
             sys.exit(1)
         created_ids.append(problem_id)
 
-    logger.info("Successfully created %s problems", len(created_ids))
-    for pid in created_ids:
-        print(pid)
+    if created_ids:
+        logger.info("Successfully created %s problems", len(created_ids))
+        for pid in created_ids:
+            print(pid)
+    else:
+        logger.warning("No problems were created successfully")
+
+    if failures:
+        logger.warning("Encountered %s failures during import", len(failures))
+        for task_name, message in failures:
+            print(f"Failed to create problem '{task_name}': {message}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
