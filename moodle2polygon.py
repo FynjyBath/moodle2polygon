@@ -175,16 +175,19 @@ def extract_text_sections(html: str) -> tuple[str, str, str]:
     current = "legend"
     for line in lines:
         normalized = line.lower()
-        if normalized.startswith("вход") and "дан" in normalized:
+        normalized = re.sub(r"\s+", " ", normalized)
+        normalized = normalized.strip()
+        normalized_heading = normalized.lstrip(" :—-–•.$'\"()[]{}0123456789")
+        if normalized_heading.startswith("вход") and "дан" in normalized_heading:
             current = "input"
             continue
-        if normalized.startswith("input"):
+        if normalized_heading.startswith("input"):
             current = "input"
             continue
-        if normalized.startswith("выход") and "дан" in normalized:
+        if normalized_heading.startswith("выход") and "дан" in normalized_heading:
             current = "output"
             continue
-        if normalized.startswith("output"):
+        if normalized_heading.startswith("output"):
             current = "output"
             continue
 
