@@ -232,12 +232,11 @@ def _normalize_whitespace(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip())
 
 
-def _extract_first_word(value: str) -> str:
-    stripped = value.lstrip()
+def _extract_words(value: str) -> list[str]:
+    stripped = value.strip()
     if not stripped:
-        return ""
-    parts = stripped.split(None, 1)
-    return parts[0] if parts else ""
+        return []
+    return stripped.split()
 
 
 def _is_integer_token(token: str) -> bool:
@@ -258,12 +257,12 @@ def _select_checker(task: MoodleTask) -> str:
     if not task.tests:
         return "std::lcmp.cpp"
 
-    first_word = _extract_first_word(task.tests[0].output_data)
-    if not first_word:
+    words = _extract_words(task.tests[0].output_data)
+    if not words:
         return "std::lcmp.cpp"
-    if _is_integer_token(first_word):
+    if all(_is_integer_token(word) for word in words):
         return "std::ncmp.cpp"
-    if _is_float_token(first_word):
+    if all(_is_float_token(word) for word in words):
         return "std::rcmp9.cpp"
     return "std::lcmp.cpp"
 
