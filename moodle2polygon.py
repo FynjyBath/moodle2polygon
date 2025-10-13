@@ -429,13 +429,7 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
             "testSample": test.use_in_statements,
         }
         if test.use_in_statements:
-            params.update(
-                {
-                    "testUseInStatements": True,
-                    "testInputForStatements": test.input_data,
-                    "testOutputForStatements": test.output_data,
-                }
-            )
+            params["testUseInStatements"] = True
         api.request("problem.saveTest", params)
 
     logger.info("Committing changes for %s", problem_code)
