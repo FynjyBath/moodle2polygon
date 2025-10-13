@@ -426,6 +426,7 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
             "testIndex": test.index,
             "testInput": test.input_data,
             "testAnswer": test.output_data,
+            "testSample": test.use_in_statements,
         }
         if test.use_in_statements:
             params.update(
