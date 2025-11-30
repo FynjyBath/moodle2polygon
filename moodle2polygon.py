@@ -260,12 +260,20 @@ def _select_checker(task: MoodleTask) -> str:
     if not task.tests:
         return "std::lcmp.cpp"
 
-    words = _extract_words(task.tests[0].output_data)
-    if not words:
-        return "std::lcmp.cpp"
-    if all(_is_integer_token(word) for word in words):
+    all_words: list[str] = []
+    for test in task.tests:
+        stripped_output = test.output_data.lstrip()
+        if stripped_output.startswith("0"):
+            return "std::lcmp.cpp"
+
+        words = _extract_words(test.output_data)
+        if not words:
+            return "std::lcmp.cpp"
+        all_words.extend(words)
+
+    if all(_is_integer_token(word) for word in all_words):
         return "std::ncmp.cpp"
-    if all(_is_float_token(word) for word in words):
+    if all(_is_float_token(word) for word in all_words):
         return "std::rcmp9.cpp"
     return "std::lcmp.cpp"
 
