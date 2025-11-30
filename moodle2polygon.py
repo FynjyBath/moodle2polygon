@@ -421,24 +421,37 @@ def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask)
         },
     )
 
+    skipped_tests = 0
     for test in task.tests:
+        adjusted_index = test.index - skipped_tests
         logger.info(
-            "Saving test %s for %s (use_in_statements=%s)",
+            "Saving test %s (adjusted index %s) for %s (use_in_statements=%s)",
             test.index,
+            adjusted_index,
             problem_code,
             test.use_in_statements,
         )
         params = {
             "problemId": problem_id,
             "testset": "tests",
-            "testIndex": test.index,
+            "testIndex": adjusted_index,
             "testInput": test.input_data,
             "testAnswer": test.output_data,
             "testSample": test.use_in_statements,
         }
         if test.use_in_statements:
             params["testUseInStatements"] = True
-        api.request("problem.saveTest", params)
+        try:
+            api.request("problem.saveTest", params)
+        except PolygonAPIError as exc:
+            skipped_tests += 1
+            logger.warning(
+                "Skipping test %s for %s due to error: %s",
+                test.index,
+                problem_code,
+                exc,
+            )
+            continue
 
     logger.info("Committing changes for %s", problem_code)
     api.request("problem.commitChanges", {"problemId": problem_id, "minorChanges": False})
