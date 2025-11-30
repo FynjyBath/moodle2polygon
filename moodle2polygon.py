@@ -352,9 +352,7 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
         )
 
     if not contest_name:
-        contest_name = pathlib.Path(path).stem.lower()
-        contest_name = re.sub(r"[^a-z0-9-]", "-", contest_name)
-        contest_name = re.sub(r"-+", "-", contest_name).strip("-")
+        contest_name = pathlib.Path(path).stem
 
     return contest_name or "Moodle Contest", tasks
 
