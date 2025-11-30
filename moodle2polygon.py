@@ -297,6 +297,16 @@ def _strip_redundant_title(legend: str, title: str) -> str:
     return "\n\n".join(sections)
 
 
+def slugify(value: str, fallback: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    ascii_text = ascii_text.lower()
+    ascii_text = re.sub(r"[^a-z0-9]+", "-", ascii_text)
+    ascii_text = ascii_text.strip("-")
+    ascii_text = re.sub(r"-+", "-", ascii_text)
+    return ascii_text or fallback
+
+
 def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
     tree = ET.parse(path)
     root = tree.getroot()
@@ -351,20 +361,10 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
             )
         )
 
-    if not contest_name:
+    if not slugify(contest_name):
         contest_name = pathlib.Path(path).stem
 
     return contest_name or "Moodle Contest", tasks
-
-
-def slugify(value: str, fallback: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    ascii_text = ascii_text.lower()
-    ascii_text = re.sub(r"[^a-z0-9]+", "-", ascii_text)
-    ascii_text = ascii_text.strip("-")
-    ascii_text = re.sub(r"-+", "-", ascii_text)
-    return ascii_text or fallback
 
 
 def create_polygon_problem(api: PolygonAPI, problem_code: str, task: MoodleTask) -> int:
