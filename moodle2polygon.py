@@ -361,7 +361,7 @@ def parse_moodle_xml(path: str) -> tuple[str, list[MoodleTask]]:
             )
         )
 
-    if not slugify(contest_name):
+    if not slugify(contest_name, ""):
         contest_name = pathlib.Path(path).stem
 
     return contest_name or "Moodle Contest", tasks
